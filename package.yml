@@ -1,5 +1,5 @@
 package: community.lazycat.app.cn-math-taxonomy
-version: 1.0.0
+version: 1.0.1
 name: CN Math Taxonomy
 description: K-12 knowledge graph with adaptive diagnosis for math and English, aligned to the PEP curriculum
 min_os_version: 1.5.0
