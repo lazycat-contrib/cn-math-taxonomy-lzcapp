@@ -4,6 +4,11 @@ on:
   schedule:
     - cron: "41 14 * * *"
   workflow_dispatch:
+    inputs:
+      force:
+        description: Build and publish even when the upstream commit is unchanged
+        type: boolean
+        default: false
 
 permissions:
   contents: write
@@ -13,18 +18,43 @@ jobs:
   version:
     runs-on: ubuntu-latest
     outputs:
-      next: ${{ steps.bump.outputs.next }}
+      next: ${{ steps.resolve.outputs.next }}
+      sha: ${{ steps.resolve.outputs.sha }}
     steps:
       - uses: actions/checkout@v7
-      - id: bump
-        name: Calculate next patch version
+      - id: resolve
+        name: Skip when the upstream commit is unchanged
         shell: bash
+        env:
+          FORCE: ${{ inputs.force }}
+          GH_TOKEN: ${{ github.token }}
         run: |
           current="$(sed -n "s/^version:[[:space:]]*//p" package.yml)"
-          next="$(node -e "const p=process.argv[1].split(String.fromCharCode(46)).map(Number); process.stdout.write(p[0]+String.fromCharCode(46)+p[1]+String.fromCharCode(46)+(p[2]+1))" "${current}")"
-          echo "next=${next}" >> "${GITHUB_OUTPUT}"
+          upstream="$(gh api repos/xiaoyang111222/cn-math-taxonomy/commits/main --jq .sha)"
+          if [[ -z "$upstream" ]]; then
+            echo "could not resolve the upstream head commit" >&2
+            exit 1
+          fi
+          marker=.lazycat-upstream-commit
+          previous=""
+          if [[ -f "$marker" ]]; then
+            previous="$(cat "$marker")"
+          fi
+          if [[ "$upstream" == "$previous" && "$FORCE" != "true" ]]; then
+            echo "upstream $upstream already built; skipping"
+            echo "next=" >> "${GITHUB_OUTPUT}"
+            exit 0
+          fi
+          next="$(node -e "const p=process.argv[1].split(String.fromCharCode(46)).map(Number); process.stdout.write(p[0]+String.fromCharCode(46)+p[1]+String.fromCharCode(46)+(p[2]+1))" "$current")"
+          echo "upstream ${upstream:0:12}; building ${current} -> ${next}"
+          {
+            echo "next=${next}"
+            echo "sha=${upstream}"
+          } >> "${GITHUB_OUTPUT}"
+
   lazycat:
     needs: version
+    if: needs.version.outputs.next
     uses: ca-x/lazycat-github-action/.github/workflows/lazycat.yml@v1
     with:
       operation: auto
@@ -37,3 +67,25 @@ jobs:
       APPSTORE_TOKEN: ${{ secrets.APPSTORE_TOKEN }}
       APP_ID: ${{ secrets.APP_ID }}
       PRIVATE_STORE_GROUP_CODES: ${{ secrets.PRIVATE_STORE_GROUP_CODES }}
+
+  record:
+    needs: [version, lazycat]
+    if: needs.version.outputs.next
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: main
+      - name: Record the built upstream commit
+        shell: bash
+        run: |
+          echo "${{ needs.version.outputs.sha }}" > .lazycat-upstream-commit
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add .lazycat-upstream-commit
+          if git diff --cached --quiet; then
+            echo "nothing to record"
+            exit 0
+          fi
+          git commit -m "chore: record upstream commit [skip ci]"
+          git push
