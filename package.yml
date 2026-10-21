@@ -1,0 +1,22 @@
+package: community.lazycat.app.cn-math-taxonomy
+version: 1.0.0
+name: CN Math Taxonomy
+description: K-12 knowledge graph with adaptive diagnosis for math and English, aligned to the PEP curriculum
+min_os_version: 1.5.0
+homepage: https://github.com/xiaoyang111222/cn-math-taxonomy
+author: xiaoyang111222
+license: MIT
+locales:
+  zh:
+    name: 中小学知识图谱
+    description: 中小学数学与英语知识图谱加前置诊断，课标对齐人教版，1503 知识点、6159 题、自适应诊断
+  zh_CN:
+    name: 中小学知识图谱
+    description: 中小学数学与英语知识图谱加前置诊断，课标对齐人教版，1503 知识点、6159 题、自适应诊断
+  en:
+    name: CN Math Taxonomy
+    description: K-12 knowledge graph with adaptive diagnosis for math and English, aligned to the PEP curriculum
+unsupported_platforms:
+  - ios
+  - android
+  - tvos

@@ -1,0 +1,39 @@
+name: LazyCat LPK
+
+on:
+  schedule:
+    - cron: "41 14 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  version:
+    runs-on: ubuntu-latest
+    outputs:
+      next: ${{ steps.bump.outputs.next }}
+    steps:
+      - uses: actions/checkout@v7
+      - id: bump
+        name: Calculate next patch version
+        shell: bash
+        run: |
+          current="$(sed -n "s/^version:[[:space:]]*//p" package.yml)"
+          next="$(node -e "const p=process.argv[1].split(String.fromCharCode(46)).map(Number); process.stdout.write(p[0]+String.fromCharCode(46)+p[1]+String.fromCharCode(46)+(p[2]+1))" "${current}")"
+          echo "next=${next}" >> "${GITHUB_OUTPUT}"
+  lazycat:
+    needs: version
+    uses: ca-x/lazycat-github-action/.github/workflows/lazycat.yml@v1
+    with:
+      operation: auto
+      config: .github/lazycat-action.yml
+      version: ${{ needs.version.outputs.next }}
+      versioned-release-asset: true
+      toolchains: none
+    secrets:
+      APPSTORE_URL: ${{ secrets.APPSTORE_URL }}
+      APPSTORE_TOKEN: ${{ secrets.APPSTORE_TOKEN }}
+      APP_ID: ${{ secrets.APP_ID }}
+      PRIVATE_STORE_GROUP_CODES: ${{ secrets.PRIVATE_STORE_GROUP_CODES }}
